@@ -1,0 +1,149 @@
+apiVersion: v1
+items:
+- apiVersion: v1
+  kind: Service
+  metadata:
+    name: back
+    labels:
+      app: back
+  spec:
+    selector:
+      app: back
+    ports:
+    - name: "5000"
+      port: 5000
+      targetPort: 5000
+    type: LoadBalancer
+- apiVersion: v1
+  kind: Service
+  metadata:
+    name: front
+    labels:
+      app: front
+  spec:
+    selector:
+      app: front
+    ports:
+    - name: "8080"
+      port: 8080
+      targetPort: 8080
+    type: LoadBalancer
+- apiVersion: v1
+  kind: Service
+  metadata:
+    name: db
+    labels:
+      app: db
+  spec:
+    selector:
+      app: db
+    ports:
+      - protocol: TCP
+        port: 1433
+        targetPort: 1433
+    type: LoadBalancer
+- apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    name: back
+    labels:
+      app: back
+  spec:
+    replicas: 2
+    selector:
+      matchLabels:
+        app: back
+    template:
+      metadata:
+        labels:
+          app: back
+      spec:
+        containers:
+        - name: back
+          image: kingapwr/team08-back
+          ports:
+          - containerPort: 5000
+          livenessProbe:
+            httpGet:
+              path: /articles/hello
+              port: 5000
+            initialDelaySeconds: 360
+            periodSeconds: 15
+          readinessProbe:
+            httpGet:
+              path: /articles/hello
+              port: 5000
+            initialDelaySeconds: 180
+            periodSeconds: 15
+- apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    name: db
+    labels:
+      app: db
+  spec:
+    replicas: 1
+    selector:
+      matchLabels:
+        app: db
+    template:
+      metadata:
+        labels:
+          app: db
+      spec:
+        containers:
+        - name: db
+          image: mcr.microsoft.com/mssql/server
+          ports:
+          - containerPort: 1433
+          env:
+          - name: MSSQL_PID
+            value: "Developer"
+          - name: ACCEPT_EULA
+            value: "Y"
+          - name: SA_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: secret-db-auth
+                key: password
+- apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    name: front
+    labels:
+      app: front
+  spec:
+    replicas: 2
+    selector:
+      matchLabels:
+        app: front
+    template:
+      metadata:
+        labels:
+          app: front
+      spec:
+        containers:
+        - name: front
+          image: kingapwr/team08-front         
+          ports:
+          - containerPort: 8080
+          livenessProbe:
+            httpGet:
+              path: /login
+              port: 8080
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /login
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 10
+- apiVersion: v1
+  kind: Secret
+  metadata:
+    name: secret-db-auth
+  type: kubernetes.io/basic-auth
+  stringData:
+    password: Password1!
+kind: List
